@@ -1,0 +1,8 @@
+---
+:directories:
+- /home/user/Pictures
+- /home/user/Documents
+:aws:
+  :key: myawskey
+  :secret: myawssecret
+  :bucket: mybackup
