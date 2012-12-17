@@ -1,6 +1,8 @@
 #!/usr/bin/env ruby
 
 require 'rubygems'
+require 'bundler/setup'
+
 require 'digest'
 require 'find'
 require 'json'
