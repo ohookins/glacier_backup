@@ -13,6 +13,7 @@ require 'glacier_backup'
 require 'glacier_backup/config'
 require 'glacier_backup/archive'
 require 'glacier_backup/bucket'
+require 'glacier_backup/signals'
 
 # Read in configuration and initialise bucket settings
 config = GlacierBackup::Config.config()
@@ -61,6 +62,9 @@ config.directories.each do |directory|
       archive.archived_at = Time.now
       archive.save!
       puts "#{shortfile} archived at #{archive.archived_at}"
+
+      # Exit if we caught a SIGINT in the meantime
+      exit(1) if $exit > 0
     end
 
   end # Find.find
