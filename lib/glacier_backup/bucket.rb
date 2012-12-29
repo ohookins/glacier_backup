@@ -31,6 +31,8 @@ module GlacierBackup::Bucket
     lifecycle_setup(bucket) if lifecycle.rules.length == 1 and lifecycle.rules.first.id != RULE_ID
     lifecycle_setup(bucket) if lifecycle.rules.length != 1
 
+    return bucket
+
     rescue AWS::S3::Errors::InvalidAccessKeyId
       STDERR.puts "Invalid AWS Access Key. Do you have correct credentials?"
       exit(1)

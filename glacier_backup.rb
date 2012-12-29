@@ -4,8 +4,8 @@ require 'rubygems'
 require 'bundler/setup'
 
 require 'digest'
+require 'progressbar'
 require 'find'
-require 'json'
 
 # Pull in libraries of glacier backup
 $:.unshift(File.expand_path('./lib'))
@@ -22,49 +22,46 @@ bucket = GlacierBackup::Bucket.create(config.aws[:key],
                                      )
 
 config.directories.each do |directory|
-  Find.find(directory)
-end
-exit(0)
+  Find.find(directory).each do |file|
+    next unless File.file?(file) and File.readable?(file) and ! File.symlink?(file)
 
-foo do
-  Find.find(path) do |file|
-    # Only want to consider actual files
-    next unless File.file?(file)
+    # Chop off the leading slash so we can store the whole path nicely in S3
+    shortfile = file.gsub(/^\//, '')
+    result = Archive.where(:filename => shortfile)
 
-    # Error out on unreadable files but continue on
-    if ! File.readable?(file)
-      STDERR.puts "\n  #{file} unreadable"
-      next
-    end
-
-    # Stream the file rather than read it all into memory.
-    digest = Digest::SHA2.new()
-    File.open(file, 'r') do |f|
-      while ! (buffer = f.read(2**16)).nil?
-        digest.update(buffer)
-      end
-    end
-    hex = digest.hexdigest()
-
-    # Skip empty files
-    next if hex == 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
-
-    # Keep track of duplicates
-    if hashes.has_key?(hex)
-      hashes[hex].push(file)
-      puts "\n  #{hex} duplicate: #{file}"
+    # Check for and create the ActiveRecord entry if missing
+    if result.empty?
+      md5 = Digest::MD5.hexdigest(File.read(file))
+      archive = Archive.new(:filename => shortfile,
+                  :md5      => md5
+                )
+      archive.save!
+      puts "Created entry for #{shortfile} with MD5 #{md5}"
     else
-      hashes[hex] = [file]
+      archive = result.first
     end
 
-    total_files += 1
-    print "\r#{total_files} files read"
-  end
+    # Upload to S3 if not already there
+    if archive.archived_at == nil
+      content_length = File.stat(file).size
+      pbar = ProgressBar.new(shortfile, content_length)
 
-  outfile = File.join(out_prefix, path.gsub('/','_') + '.json')
-  File.open(outfile,'w') do |f|
-    f.write(JSON::dump(hashes))
-  end
-  total_hashes += hashes.length
-  puts "\nCalculated and wrote #{hashes.length} hashes for #{total_files} files."
-end
+      obj = bucket.objects[shortfile]
+      File.open(file,'r') do |f|
+        obj.write(:content_length => content_length,
+                 :reduced_redundancy => true
+                 ) do |buffer, bytes|
+          buffer.write(f.read(bytes))
+          pbar.inc(bytes)
+        end
+        pbar.finish
+      end
+
+      # Update archive time
+      archive.archived_at = Time.now
+      archive.save!
+      puts "#{shortfile} archived at #{archive.archived_at}"
+    end
+
+  end # Find.find
+end # config.directories.each
