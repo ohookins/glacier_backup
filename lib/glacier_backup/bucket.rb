@@ -8,7 +8,11 @@ module GlacierBackup::Bucket
 
   def create(access_key, secret_key, bucket_name)
     s3 = AWS::S3.new(:access_key_id     => access_key,
-                     :secret_access_key => secret_key
+                     :secret_access_key => secret_key,
+                     # Network transport reliability options
+                     :http_open_timeout => 60,
+                     :http_read_timeout => 300,
+                     :max_retries       => 10
                     )
 
     bucket = s3.buckets[bucket_name]

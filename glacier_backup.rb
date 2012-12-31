@@ -47,15 +47,17 @@ config.directories.each do |directory|
       content_length = File.stat(file).size
       pbar = ProgressBar.new(shortfile, content_length)
 
-      obj = bucket.objects[shortfile]
-      File.open(file,'r') do |f|
-        obj.write(:content_length => content_length,
-                 :reduced_redundancy => true
-                 ) do |buffer, bytes|
-          buffer.write(f.read(bytes))
-          pbar.inc(bytes)
+      GlacierBackup::retry do
+        obj = bucket.objects[shortfile]
+        File.open(file,'r') do |f|
+          obj.write(:content_length => content_length,
+                   :reduced_redundancy => true
+                   ) do |buffer, bytes|
+            buffer.write(f.read(bytes))
+            pbar.inc(bytes)
+          end
+          pbar.finish
         end
-        pbar.finish
       end
 
       # Update archive time
