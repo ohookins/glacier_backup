@@ -32,10 +32,17 @@ config.directories.each do |directory|
 
     # Check for and create the ActiveRecord entry if missing
     if result.empty?
-      md5 = Digest::MD5.hexdigest(File.read(file))
+      # Calculate MD5 in chunks to avoid using all memory
+      md5 = Digest::MD5.new
+      File.open(file,'r') do |f|
+        until f.eof?
+          md5.update(f.read(2**16))
+        end
+      end
+
       archive = Archive.new(:filename => shortfile,
-                  :md5      => md5
-                )
+                            :md5      => md5.hexdigest
+                           )
       archive.save!
       puts "Created entry for #{shortfile} with MD5 #{md5}"
     else
