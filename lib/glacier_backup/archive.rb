@@ -5,12 +5,14 @@ ActiveRecord::Base.establish_connection(
   :adapter    => "sqlite3",
   :database   => File.join(ENV['HOME'], '.glacierbackup.sqlite')
 )
+MIGRATIONS_PATH = File.expand_path('../../../migrations', __FILE__)
+ActiveRecord::Migrator.migrations_path = MIGRATIONS_PATH
 
-# Perform the initial table creation here if it doesn't exist.
-if ActiveRecord::Migrator.current_version == 0
-  puts "Creating initial database layout..."
-  ActiveRecord::Migrator.up(File.expand_path('../../../migrations', __FILE__))
+# Ensure the database is up to date with the latest schema.
+available_migrations = ActiveRecord::Migrator.migrations(MIGRATIONS_PATH)
+if ActiveRecord::Migrator.current_version < available_migrations.last.version
+  puts "Creating and/or updating database schema..."
+  ActiveRecord::Migrator.up(MIGRATIONS_PATH)
 end
 
 class Archive < ActiveRecord::Base; end
-

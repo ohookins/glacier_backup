@@ -2,7 +2,7 @@ require 'digest'
 
 module GlacierBackup
   RETRIES = 3
-  DEFAULT_ALGORITHM = :md5
+  DEFAULT_ALGORITHM = :sha1
   READ_SIZE = 2**16
 
   extend self
