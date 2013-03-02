@@ -3,7 +3,6 @@
 require 'rubygems'
 require 'bundler/setup'
 
-require 'digest'
 require 'progressbar'
 require 'find'
 
@@ -24,6 +23,7 @@ bucket = GlacierBackup::Bucket.create(config.aws[:key],
 
 config.directories.each do |directory|
   Find.find(directory).each do |file|
+    hash = nil
     next unless File.file?(file) and File.readable?(file) and ! File.symlink?(file)
 
     # Chop off the leading slash so we can store the whole path nicely in S3
@@ -32,21 +32,22 @@ config.directories.each do |directory|
 
     # Check for and create the ActiveRecord entry if missing
     if result.empty?
-      # Calculate MD5 in chunks to avoid using all memory
-      md5 = Digest::MD5.new
-      File.open(file,'r') do |f|
-        until f.eof?
-          md5.update(f.read(2**16))
-        end
-      end
-
       archive = Archive.new(:filename => shortfile,
-                            :md5      => md5.hexdigest
+                            :md5      => hash ||= GlacierBackup::filehash(file)
                            )
       archive.save!
-      puts "Created entry for #{shortfile} with MD5 #{md5}"
+      puts "Created entry for #{shortfile} with hash #{hash}"
     else
       archive = result.first
+    end
+
+    # Verify the hash to see if the file has changed
+    if config.verify
+      hash ||= GlacierBackup::filehash(file)
+
+      if archive.md5 != hash
+        puts "#{archive.filename} changed, #{archive.md5} => #{hash}"
+      end
     end
 
     # Upload to S3 if not already there
