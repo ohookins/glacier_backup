@@ -2,6 +2,8 @@
 :directories:
 - /home/user/Pictures
 - /home/user/Documents
+:timemachine:
+- /mnt/timemachine
 :aws:
   :key: myawskey
   :secret: myawssecret

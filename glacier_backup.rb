@@ -3,7 +3,6 @@
 require 'rubygems'
 require 'bundler/setup'
 
-require 'progressbar'
 require 'find'
 
 # Pull in libraries of glacier backup
@@ -16,12 +15,23 @@ require 'glacier_backup/signals'
 
 # Read in configuration and initialise bucket settings
 config = GlacierBackup::Config.config()
-bucket = GlacierBackup::Bucket.create(config.aws[:key],
-                                      config.aws[:secret],
-                                      config.aws[:bucket]
-                                     )
+bucket = GlacierBackup::Bucket.new(
+                                   config.aws[:key],
+                                   config.aws[:secret],
+                                   config.aws[:bucket]
+                                  )
 
-config.directories.each do |directory|
+# Organise directories to be backed up by updatable backups (e.g directories
+# containing TimeMachine fragments) and immutable backups (everything else).
+directories = {}
+config.directories.each do |dir|
+  directories[dir] = :persist
+end
+config.timemachine.each do |dir|
+  directories[dir] = :update
+end
+
+directories.each_pair do |directory,policy|
   Find.find(directory).each do |file|
     hash = nil
     next unless File.file?(file) and File.readable?(file) and ! File.symlink?(file)
@@ -32,8 +42,8 @@ config.directories.each do |directory|
 
     # Check for and create the ActiveRecord entry if missing
     if result.empty?
-      archive = Archive.new(:filename => shortfile,
-                            :md5      => hash ||= GlacierBackup::filehash(file)
+      archive = Archive.new(:filename    => shortfile,
+                            :file_digest => hash ||= GlacierBackup::filehash(file)
                            )
       archive.save!
       puts "Created entry for #{shortfile} with hash #{hash}"
@@ -42,33 +52,21 @@ config.directories.each do |directory|
     end
 
     # Verify the hash to see if the file has changed
-    if config.verify
+    if config.verify or policy == :update
       hash ||= GlacierBackup::filehash(file)
 
-      if archive.md5 != hash
-        puts "#{archive.filename} changed, #{archive.md5} => #{hash}"
+      if archive.file_digest != hash
+        puts "#{archive.filename} changed, #{archive.file_digest} => #{hash}"
       end
     end
 
-    # Upload to S3 if not already there
-    if archive.archived_at == nil
-      content_length = File.stat(file).size
-      pbar = ProgressBar.new(shortfile, content_length)
+    # Upload to S3 if not already there, or if the archive is updatable and the
+    # hash has changed.
+    if archive.archived_at == nil or (policy == :update and archive.file_digest != hash)
+      bucket.archive(file, hash)
 
-      GlacierBackup::retry do
-        obj = bucket.objects[shortfile]
-        File.open(file,'r') do |f|
-          obj.write(:content_length => content_length,
-                   :reduced_redundancy => true
-                   ) do |buffer, bytes|
-            buffer.write(f.read(bytes))
-            pbar.inc(bytes)
-          end
-          pbar.finish
-        end
-      end
-
-      # Update archive time
+      # Update archive metadata
+      archive.file_digest = hash
       archive.archived_at = Time.now
       archive.save!
       puts "#{shortfile} archived at #{archive.archived_at}"
