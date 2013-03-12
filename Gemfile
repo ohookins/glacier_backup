@@ -1,4 +1,4 @@
-source :rubygems
+source 'https://rubygems.org'
 
 # Local metadata
 gem "activerecord"
