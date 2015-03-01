@@ -32,6 +32,8 @@ config.timemachine.each do |dir|
 end
 
 directories.each_pair do |directory,policy|
+  directory = directory + '/' unless directory.end_with? '/'
+
   Find.find(directory).each do |file|
     hash = nil
     next unless File.file?(file) and File.readable?(file) and ! File.symlink?(file)
