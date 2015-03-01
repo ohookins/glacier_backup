@@ -6,7 +6,7 @@ require 'bundler/setup'
 require 'find'
 
 # Pull in libraries of glacier backup
-$:.unshift(File.expand_path('./lib'))
+$:.unshift(File.expand_path('../lib', __FILE__))
 require 'glacier_backup'
 require 'glacier_backup/config'
 require 'glacier_backup/archive'
@@ -24,10 +24,12 @@ bucket = GlacierBackup::Bucket.new(
 # Organise directories to be backed up by updatable backups (e.g directories
 # containing TimeMachine fragments) and immutable backups (everything else).
 directories = {}
-config.directories.each do |dir|
+config.directories.nil? || config.directories.each do |dir|
+  puts "Processing #{dir} as regular backup directory."
   directories[dir] = :persist
 end
-config.timemachine.each do |dir|
+config.timemachine.nil? || config.timemachine.each do |dir|
+  puts "Processing #{dir} as TimeMachine backup directory."
   directories[dir] = :update
 end
 
