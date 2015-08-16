@@ -8,4 +8,5 @@
   :key: myawskey
   :secret: myawssecret
   :bucket: mybackup
+  :region: us-east-1
 :verify: false

@@ -18,7 +18,8 @@ config = GlacierBackup::Config.config()
 bucket = GlacierBackup::Bucket.new(
                                    config.aws[:key],
                                    config.aws[:secret],
-                                   config.aws[:bucket]
+                                   config.aws[:bucket],
+                                   config.aws[:region]
                                   )
 
 # Organise directories to be backed up by updatable backups (e.g directories

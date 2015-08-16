@@ -15,7 +15,7 @@ module GlacierBackup
     while true
       begin
         yield
-      rescue AWS::Core::Client::NetworkError, AWS::S3::Errors::InternalError
+      rescue Aws::Core::Client::NetworkError, Aws::S3::Errors::InternalError
         attempts += 1
         break if attempts >= RETRIES
         STDERR.puts "Transfer failed, retrying (#{attempts} of #{RETRIES})"

@@ -5,7 +5,7 @@ gem "activerecord"
 gem "sqlite3"
 
 # AWS SDK
-gem "aws-sdk", "~> 1.8"
+gem "aws-sdk"
 
 # Progress display
 gem "progressbar"
